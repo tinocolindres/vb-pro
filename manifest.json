@@ -1,0 +1,48 @@
+{
+  "name": "MacroCiclo VB PRO",
+  "short_name": "VB PRO",
+  "description": "Sistema profesional de planificación y gestión de volleyball — Liga Nacional",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#060D18",
+  "theme_color": "#E6A817",
+  "lang": "es",
+  "categories": ["sports", "productivity"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Dashboard de Hoy",
+      "short_name": "Hoy",
+      "description": "Ver el estado del equipo hoy",
+      "url": "./index.html#hoy"
+    },
+    {
+      "name": "Seguimiento",
+      "short_name": "Seguimiento",
+      "description": "Registrar datos semanales",
+      "url": "./index.html#seg"
+    },
+    {
+      "name": "Coach IA",
+      "short_name": "Coach IA",
+      "description": "Consultar al asistente de coaching",
+      "url": "./index.html#coach"
+    }
+  ]
+}

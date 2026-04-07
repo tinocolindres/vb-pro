@@ -1,6 +1,6 @@
 // MacroCiclo VB PRO — Service Worker
 // Versión del cache — incrementar para forzar actualización
-const CACHE_VERSION = 'vb-pro-v1';
+const CACHE_VERSION = 'vb-pro-v2';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_CDN = `${CACHE_VERSION}-cdn`;
 

@@ -3,17 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MacroCiclo VB PRO v04070402</title>
+<title>MacroCiclo VB PRO v04071331</title>
 <meta name="description" content="Sistema profesional de planificación y gestión de volleyball">
 <meta name="theme-color" content="#E6A817">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VB PRO">
-<link rel="manifest" href="manifest.json">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -230,6 +225,7 @@ table.rt tr:hover td{background:var(--bg3);}
   </nav>
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span class="nbadge">Liga Nacional · 16 sem.</span>
+    <button onclick="closeApp()" title="Cerrar app" style="background:rgba(214,59,47,.15);border:1px solid rgba(214,59,47,.4);color:var(--red);padding:4px 11px;border-radius:6px;cursor:pointer;font-family:var(--f);font-size:11px;font-weight:600">✕ Cerrar</button>
     <button id="save-btn" onclick="saveState()" style="background:rgba(15,168,110,.15);border:1px solid rgba(15,168,110,.4);color:var(--green);padding:4px 11px;border-radius:6px;cursor:pointer;font-family:var(--f);font-size:11px;font-weight:600">💾 Guardar</button>
     <button onclick="exportJSON()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);padding:4px 11px;border-radius:6px;cursor:pointer;font-family:var(--f);font-size:11px">⬇ Exportar</button>
     <label style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);padding:4px 11px;border-radius:6px;cursor:pointer;font-family:var(--f);font-size:11px">⬆ Importar<input type="file" accept=".json" style="display:none" onchange="importJSON(this)"></label>
@@ -244,14 +240,27 @@ table.rt tr:hover td{background:var(--bg3);}
       <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px" onclick="closeVoice()">✕</button>
     </div>
     <div class="vp-body">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px" id="vp-hint">Habla un comando. Ejemplos:<br>
-        <em style="color:var(--text)">"Registrar Carlos semana 6 fatiga 7 salto 62"</em><br>
-        <em style="color:var(--text)">"¿Quién está listo para jugar el sábado?"</em><br>
-        <em style="color:var(--text)">"Agregar lesión a Marcos: tobillo derecho"</em>
+      <!-- API Key status bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">
+        <span style="font-size:11px" id="vp-key-status">🔑 Verificando...</span>
+        <button style="font-size:10px;background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer" onclick="configVoiceKey()">⚙ Configurar key</button>
       </div>
-      <div class="vp-transcript" id="vp-transcript">Esperando...</div>
-      <div class="vp-result" id="vp-result"></div>
-      <div class="vp-actions" id="vp-actions" style="display:none">
+      <!-- Mode tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="phbtn on" id="vp-tab-mic" onclick="setVoiceTab('mic')" style="flex:1;font-size:11px">🎤 Voz</button>
+        <button class="phbtn" id="vp-tab-text" onclick="setVoiceTab('text')" style="flex:1;font-size:11px">⌨ Texto</button>
+      </div>
+      <!-- Mic mode -->
+      <div id="vp-mic-mode">
+        <div class="vp-transcript" id="vp-transcript">Toca el botón 🎤 en el nav para hablar</div>
+      </div>
+      <!-- Text mode fallback -->
+      <div id="vp-text-mode" style="display:none">
+        <textarea id="vp-text-input" class="fi" style="min-height:60px;font-size:13px;resize:none" placeholder="Escribe tu comando aqui...&#10;Ej: Registrar Carlos semana 6 fatiga 7 salto 62"></textarea>
+        <button class="btn btn-g bsm" style="width:100%;margin-top:6px" onclick="submitTextCommand()">Enviar comando</button>
+      </div>
+      <div class="vp-result" id="vp-result" style="margin-top:8px"></div>
+      <div class="vp-actions" id="vp-actions" style="display:none;margin-top:8px">
         <button class="btn btn-g bsm" style="flex:1" id="vp-confirm-btn" onclick="confirmVoiceAction()">✅ Confirmar</button>
         <button class="btn btn-o bsm" onclick="resetVoice()">🔄 Repetir</button>
         <button class="btn btn-o bsm" onclick="closeVoice()">✕</button>
@@ -1783,7 +1792,8 @@ async function sendCoach() {
 
   try {
     const sysPrompt = buildCoachContext();
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const _ck2=localStorage.getItem('vb_api_key')||'';const _ch2={'Content-Type':'application/json'};if(_ck2){_ch2['x-api-key']=_ck2;_ch2['anthropic-version']='2023-06-01';_ch2['anthropic-dangerous-direct-browser-access']='true';}
+const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1999,7 +2009,8 @@ async function callFrameAPI(b64){
 El equipo LOCAL (${vSetup.homeTeam}) usa camiseta ${vSetup.homeColor} (${hHex}).
 El equipo VISITANTE (${vSetup.awayTeam}) usa camiseta ${vSetup.awayColor} (${aHex}).
 Responde ÚNICAMENTE con JSON válido sin markdown: {"action":"ataque|saque|bloqueo|recepcion|defensa|armado|punto|unclear","team":"home|away|unclear","success":true,"zone":"zona 1-6 o unclear","notes":"descripción breve en español","confidence":"alta|media|baja"}`;
-  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+  const _vk=localStorage.getItem('vb_api_key')||'';const _vh={'Content-Type':'application/json'};if(_vk){_vh['x-api-key']=_vk;_vh['anthropic-version']='2023-06-01';_vh['anthropic-dangerous-direct-browser-access']='true';}
+const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:_vh,
     body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,system:sys,
       messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:'Analiza este frame de volleyball y responde con el JSON solicitado.'}]}]})});
   const data=await res.json();
@@ -2136,10 +2147,12 @@ async function analyzeMatchWithCoach(){
     return`${name}: ${Object.entries(ba).filter(([,v])=>v.ok+v.err>0).map(([k,v])=>`${k}:${v.ok}ok/${v.err}err`).join(', ')} | Efectividad: ${evs.length?Math.round(evs.filter(e=>e.success).length/evs.length*100):0}%`;
   }).join('\n');
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+    const _ak=localStorage.getItem('vb_api_key')||'';
+    const _headers={'Content-Type':'application/json'};
+    if(_ak){_headers['x-api-key']=_ak;_headers['anthropic-version']='2023-06-01';_headers['anthropic-dangerous-direct-browser-access']='true';}
+    const apiResp=await apiCall({model:'claude-sonnet-4-20250514',max_tokens:800,
         system:'Eres un entrenador de volleyball de alto rendimiento. Analiza estadísticas de partido y da retroalimentación táctica concreta en español. Usa los nombres de los equipos. Máximo 5 puntos clave accionables.',
-        messages:[{role:'user',content:`Partido: ${vSetup.matchLabel||'Sin nombre'}\n\nEstadísticas:\n${lines}\n\nTotal eventos: ${videoEvents.length}\n\nDame: 1) puntos fuertes de cada equipo, 2) errores a corregir, 3) recomendaciones concretas para el próximo entrenamiento.`}]})});
+        messages:[{role:'user',content:`Partido: ${vSetup.matchLabel||'Sin nombre'}\n\nEstadísticas:\n${lines}\n\nTotal eventos: ${videoEvents.length}\n\nDame: 1) puntos fuertes de cada equipo, 2) errores a corregir, 3) recomendaciones concretas para el próximo entrenamiento.`}]});const res={json:async()=>apiResp};
     const data=await res.json();const txt=data.content?.[0]?.text||'Sin respuesta.';
     out.innerHTML=txt.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
   }catch(e){out.innerHTML=`<span style="color:var(--red)">Error: ${e.message}</span>`;}
@@ -2330,12 +2343,39 @@ const TAC_TEMPLATES=[
 const tacObjects=[];let tacDragIdx=-1;
 
 function initTactica(){
-  document.getElementById('tac-cat-btns').innerHTML=['Rotaciones','Recepción','Bloqueo','Ataque','Defensa','Libre'].map((c,i)=>`<button class="phbtn ${i===0?'on':''}" data-cat="${c}" onclick="filterTacCat(this.getAttribute('data-cat'),this)">${c}</button>`).join('');
-  document.getElementById('tac-tools').innerHTML=[
-    {id:'player',icon:'👤',label:'Jugador',color:'#2B7FD4'},{id:'player-red',icon:'👤',label:'Rival',color:'#D63B2F'},
-    {id:'ball',icon:'🏐',label:'Balon',color:'#E6A817'},{id:'arrow',icon:'>',label:'Flecha',color:'#0FA86E'},
-    {id:'erase',icon:'X',label:'Borrar',color:'#D63B2F'},
-  ].map(t=>`<button class="phbtn ${t.id==='player'?'on':''}" style="font-size:11px;padding:5px 10px" id="tac-tool-${t.id}" data-tool="${t.id}" data-color="${t.color}" onclick="selectTacTool(this.dataset.tool,this.dataset.color,this)">${t.icon} ${t.label}</button>`).join('');
+  // Category buttons — data-cat + addEventListener
+  const catBtns=['Rotaciones','Recepción','Bloqueo','Ataque','Defensa','Libre'];
+  document.getElementById('tac-cat-btns').innerHTML=catBtns.map((c,i)=>
+    `<button class="phbtn ${i===0?'on':''}" data-cat="${c}">${c}</button>`
+  ).join('');
+  document.querySelectorAll('#tac-cat-btns button').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      document.querySelectorAll('#tac-cat-btns button').forEach(b=>b.classList.remove('on'));
+      this.classList.add('on');
+      renderTacTemplates(this.dataset.cat);
+    });
+  });
+
+  // Tool buttons — addEventListener (no onclick attributes)
+  const TOOLS=[
+    {id:'player',    icon:'P', label:'Jugador',  color:'#2B7FD4'},
+    {id:'player-red',icon:'R', label:'Rival',    color:'#D63B2F'},
+    {id:'ball',      icon:'B', label:'Balon',    color:'#E6A817'},
+    {id:'arrow',     icon:'F', label:'Flecha',   color:'#0FA86E'},
+    {id:'erase',     icon:'X', label:'Borrar',   color:'#D63B2F'},
+  ];
+  document.getElementById('tac-tools').innerHTML=TOOLS.map(t=>
+    `<button class="phbtn ${t.id==='player'?'on':''}" id="tac-tool-${t.id}" style="font-size:11px;padding:5px 12px;font-weight:700" data-tool="${t.id}" data-color="${t.color}">${t.icon} ${t.label}</button>`
+  ).join('');
+  document.querySelectorAll('#tac-tools button').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      tacMode=this.dataset.tool;
+      tacColor=this.dataset.color;
+      document.querySelectorAll('#tac-tools button').forEach(b=>b.classList.remove('on'));
+      this.classList.add('on');
+    });
+  });
+
   renderTacTemplates('Todos');renderTacSaved();
   setupTacCanvas();loadTemplate(TAC_TEMPLATES[0]);
 }
@@ -2351,8 +2391,11 @@ function selectTacTool(id,color,btn){
 }
 function setupTacCanvas(){
   const canvas=document.getElementById('tac-canvas');
-  tacCtx=canvas.getContext('2d');
-  canvas.addEventListener('click',e=>{
+  // Clone canvas to remove all old listeners
+  const fresh=canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(fresh,canvas);
+  tacCtx=fresh.getContext('2d');
+  fresh.addEventListener('click',e=>{
     const rect=canvas.getBoundingClientRect();
     const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
     const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;
@@ -2515,10 +2558,12 @@ function showRival(id){
 async function askCoachAboutRival(rival,sistema,notas){
   const el=document.getElementById('rival-coach-resp');el.innerHTML='<span style="color:var(--muted)">Generando estrategia...</span>';
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,
+    const _ak=localStorage.getItem('vb_api_key')||'';
+    const _headers={'Content-Type':'application/json'};
+    if(_ak){_headers['x-api-key']=_ak;_headers['anthropic-version']='2023-06-01';_headers['anthropic-dangerous-direct-browser-access']='true';}
+    const apiResp=await apiCall({model:'claude-sonnet-4-20250514',max_tokens:600,
         system:'Eres un entrenador de volleyball de alto rendimiento con 20+ años de experiencia. Da estrategias concretas y accionables en español.',
-        messages:[{role:'user',content:`Voy a jugar contra ${rival}. Sistema de juego: ${sistema}. Notas de scouting: ${notas||'No hay notas'}. Equipo local: ${vSetup.homeTeam||'Mi equipo'}. Dame: 1) estrategia de saque, 2) sistema defensivo recomendado, 3) cómo atacar sus debilidades, 4) rotación inicial sugerida.`}]})});
+        messages:[{role:'user',content:`Voy a jugar contra ${rival}. Sistema de juego: ${sistema}. Notas de scouting: ${notas||'No hay notas'}. Equipo local: ${vSetup.homeTeam||'Mi equipo'}. Dame: 1) estrategia de saque, 2) sistema defensivo recomendado, 3) cómo atacar sus debilidades, 4) rotación inicial sugerida.`}]});const res={json:async()=>apiResp};
     const data=await res.json();
     el.innerHTML=(data.content?.[0]?.text||'Sin respuesta').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
   }catch(e){el.innerHTML=`<span style="color:var(--red)">Error: ${e.message}</span>`;}
@@ -2813,10 +2858,12 @@ async function genTemporadaReport(){
     return`${pl.name} (${PN[pl.pos]}): carga prom ${avgLoad}%, fatiga prom ${avgFat}/10, ACWR=${acwr?acwr.toFixed(2):'N/D'}, lesiones ${injCount}`;
   }).join('\n');
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,
+    const _ak=localStorage.getItem('vb_api_key')||'';
+    const _headers={'Content-Type':'application/json'};
+    if(_ak){_headers['x-api-key']=_ak;_headers['anthropic-version']='2023-06-01';_headers['anthropic-dangerous-direct-browser-access']='true';}
+    const apiResp=await apiCall({model:'claude-sonnet-4-20250514',max_tokens:900,
         system:'Eres un entrenador de volleyball de alto rendimiento. Genera un informe de cierre de temporada profesional en español. Estructura: resumen ejecutivo, análisis por jugador (solo los destacados), áreas de mejora del equipo, recomendaciones para la siguiente planificación.',
-        messages:[{role:'user',content:`Equipo: ${players.length} jugadores. Liga Nacional. 16 semanas.\n\nResumen de datos:\n${summary}\n\nPartidos jugados: ${matches.filter(m=>m.result).length}. Victorias: ${matches.filter(m=>m.result==='W').length}.\n\nGenera el informe de cierre de temporada.`}]})});
+        messages:[{role:'user',content:`Equipo: ${players.length} jugadores. Liga Nacional. 16 semanas.\n\nResumen de datos:\n${summary}\n\nPartidos jugados: ${matches.filter(m=>m.result).length}. Victorias: ${matches.filter(m=>m.result==='W').length}.\n\nGenera el informe de cierre de temporada.`}]});const res={json:async()=>apiResp};
     const data=await res.json();
     el.innerHTML=(data.content?.[0]?.text||'Sin respuesta').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/#{1,3}\s(.+)/g,'<div style="font-family:var(--fh);font-size:16px;color:var(--gold);margin:10px 0 4px">$1</div>').replace(/\n/g,'<br>');
   }catch(e){el.innerHTML=`<span style="color:var(--red)">Error: ${e.message}</span>`;}
@@ -3243,18 +3290,6 @@ function escapeForTextarea(str){
 function printReport(title,html){
   const css=`body{font-family:Arial,sans-serif;padding:24px;color:#111;max-width:800px;margin:0 auto;}h1{border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:16px;}h2{color:#333;margin-top:20px;}table{width:100%;border-collapse:collapse;margin-bottom:16px;}th,td{border:1px solid #ccc;padding:7px 10px;text-align:left;font-size:12px;}th{background:#f0f0f0;}`;
   const fullHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${css}</style></head><body><h1>${title}</h1>${html}<p style="color:#888;font-size:11px;margin-top:24px">MacroCiclo VB PRO — ${new Date().toLocaleDateString('es-HN')}</p>
-
-
-
-
-// SW Manager — force fresh content always
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister());
-  });
-  // Register the self-destruct SW which clears caches and reloads
-  navigator.serviceWorker.register('./sw.js?v=4').catch(()=>{});
-}
 </body></html>`;
   showExportModal(title, fullHtml, 'html');
 }
@@ -3596,6 +3631,61 @@ function printMicro(){
 // ═══════════════════════════════════════════
 let recognition=null, voiceOpen=false, lastTranscript='', pendingAction=null;
 
+
+// ── Universal API call helper with key management ──
+async function apiCall(body){
+  const key=(localStorage.getItem('vb_api_key')||'').trim();
+  if(!key) throw new Error('API Key no configurada. Usa el microfono para configurarla.');
+  const headers={
+    'Content-Type':'application/json',
+    'x-api-key':key,
+    'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true'
+  };
+  let res;
+  try{
+    res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers,body:JSON.stringify(body)
+    });
+  }catch(netErr){
+    throw new Error('Sin conexion o CORS bloqueado. Verifica tu conexion a internet. ('+netErr.message+')');
+  }
+  if(!res.ok){
+    const e=await res.json().catch(()=>({}));
+    if(res.status===401) throw new Error('API Key invalida. Borra la key actual e ingresa una nueva.');
+    throw new Error(e.error?.message||'HTTP '+res.status);
+  }
+  return res.json();
+}
+function setVoiceTab(tab){
+  document.getElementById('vp-tab-mic').classList.toggle('on', tab==='mic');
+  document.getElementById('vp-tab-text').classList.toggle('on', tab==='text');
+  document.getElementById('vp-mic-mode').style.display = tab==='mic'?'block':'none';
+  document.getElementById('vp-text-mode').style.display = tab==='text'?'block':'none';
+}
+async function submitTextCommand(){
+  const text = document.getElementById('vp-text-input').value.trim();
+  if(!text) return;
+  document.getElementById('vp-text-input').value='';
+  document.getElementById('vp-transcript').textContent = text;
+  await processVoiceCommand(text);
+}
+function updateKeyStatus(){
+  const el = document.getElementById('vp-key-status');
+  if(!el) return;
+  const k = localStorage.getItem('vb_api_key');
+  if(k){
+    el.innerHTML = '🔑 <span style="color:var(--green);font-weight:600">Key configurada ✅</span> <span style="color:var(--muted);font-size:10px">' + k.substring(0,12) + '...</span>';
+  } else {
+    el.innerHTML = '🔑 <span style="color:var(--red);font-weight:600">Sin API Key</span> — toca Configurar';
+  }
+}
+
+// Utility: reset API key
+function resetApiKey(){
+  localStorage.removeItem('vb_api_key');
+  alert('API Key eliminada. El proximo uso del microfono te pedira una nueva.');
+}
 function initVoice(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){
@@ -3604,7 +3694,15 @@ function initVoice(){
     return;
   }
   recognition=new SR();
+  // Edge and some browsers work better with es-US, try es-HN first with fallback
   recognition.lang='es-HN';
+  recognition.onerror=e=>{
+    if(e.error==='language-not-supported'){recognition.lang='es-US';recognition.start();return;}
+    setVoiceState('idle');
+    const msgs={'not-allowed':'⚠ Permiso de microfono denegado. Ve a Configuracion del sitio y permite el microfono.','no-speech':'No se detecto voz. Habla mas cerca del microfono o usa modo Texto.','network':'Error de red.','audio-capture':'No se encontro microfono.','service-not-allowed':'Microfono no permitido en esta pagina.'};
+    document.getElementById('vp-transcript').textContent=msgs[e.error]||'Error: '+e.error+'. Intenta modo Texto (tab derecho).';
+  };
+  const _origErr = recognition.onerror;
   recognition.continuous=false;
   recognition.interimResults=true;
   recognition.onstart=()=>{
@@ -3664,7 +3762,11 @@ function toggleVoice(){
 function openVoice(){
   voiceOpen=true;
   document.getElementById('voice-panel').classList.add('show');
-  setTimeout(startListening,300);
+  updateKeyStatus();
+  // Only auto-start listening in mic mode
+  if(document.getElementById('vp-tab-mic').classList.contains('on')){
+    setTimeout(startListening,300);
+  }
 }
 
 function closeVoice(){
@@ -3735,23 +3837,50 @@ Acciones disponibles:
 - NAVIGATE: ir a un módulo específico (ranking, seguimiento, calendario, etc.)
 - UNKNOWN: comando no reconocido`;
 
+  // Check for API key (required when running outside claude.ai)
+  const apiKey=localStorage.getItem('vb_api_key')||'';
+  if(!apiKey){
+    setVoiceState('idle');
+    const el=document.getElementById('vp-result');
+    el.innerHTML=`<div style="font-size:12px;line-height:1.7">
+      <div style="color:var(--gold);font-weight:700;margin-bottom:6px">🔑 API Key requerida</div>
+      <div style="color:var(--muted);margin-bottom:8px">Para usar el asistente de voz fuera de Claude.ai necesitas tu API key de Anthropic.</div>
+      <input id="vp-apikey-input" placeholder="sk-ant-..." style="width:100%;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:12px;font-family:var(--f);margin-bottom:7px">
+      <button class="btn btn-g bsm" style="width:100%" onclick="const k=document.getElementById('vp-apikey-input').value.trim();if(k){localStorage.setItem('vb_api_key',k);document.getElementById('vp-result').classList.remove('show');document.getElementById('vp-actions').style.display='none';alert('✅ API key guardada. Habla de nuevo.');resetVoice();}">Guardar API Key</button>
+      <div style="color:var(--muted);font-size:10px;margin-top:6px">La key se guarda localmente en tu dispositivo. Obtenla en console.anthropic.com</div>
+    </div>`;
+    el.classList.add('show');
+    return;
+  }
+  if(!localStorage.getItem('vb_api_key')){
+    setVoiceState('idle');
+    const el=document.getElementById('vp-result');
+    el.innerHTML='<div style="font-size:12px;line-height:1.8;color:var(--text)"><div style="color:var(--gold);font-weight:700;margin-bottom:6px">&#128273; API Key requerida</div><div style="color:var(--muted);margin-bottom:8px">Ingresa tu API key de Anthropic<br><small>console.anthropic.com &rarr; API Keys &rarr; Create Key</small></div><input id="vp-apikey-input" type="password" placeholder="sk-ant-api03-..." style="width:100%;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:12px;box-sizing:border-box;margin-bottom:7px"><button class="btn btn-g bsm" style="width:100%" id="vp-save-key">Guardar y continuar</button><div style="color:var(--muted);font-size:10px;margin-top:6px">Se guarda solo en este dispositivo</div></div>';
+    el.classList.add('show');
+    setTimeout(()=>{
+      const btn=document.getElementById('vp-save-key');
+      if(btn)btn.addEventListener('click',()=>{
+        const k=document.getElementById('vp-apikey-input').value.trim();
+        if(k.startsWith('sk-')){localStorage.setItem('vb_api_key',k);el.classList.remove('show');startListening();}
+        else alert('Key invalida. Debe empezar con sk-');
+      });
+    },100);
+    return;
+  }
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:600,
-        system:systemPrompt,
-        messages:[{role:'user',content:`Comando de voz: "${text}"`}]
-      })
-    });
-    const data=await res.json();
+    const data=await apiCall({model:'claude-sonnet-4-20250514',max_tokens:600,system:systemPrompt,messages:[{role:'user',content:'Comando de voz: "'+text+'"'}]});
     const raw=data.content?.[0]?.text||'{}';
     const clean=raw.replace(/```json|```/g,'').trim();
     pendingAction=JSON.parse(clean);
     showVoiceResult(pendingAction,text);
   }catch(e){
     setVoiceState('idle');
-    document.getElementById('vp-result').innerHTML=`<span style="color:var(--red)">Error al procesar: ${e.message}</span>`;
+    const isKeyErr=e.message.includes('Key')||e.message.includes('401')||e.message.includes('Key no configurada');
+    document.getElementById('vp-result').innerHTML=`<div style="font-size:12px;line-height:1.8">
+      <div style="color:var(--red);font-weight:700">Error: ${e.message}</div>
+      ${isKeyErr?`<button class="btn btn-o bsm" style="margin-top:8px;width:100%" onclick="localStorage.removeItem('vb_api_key');resetVoice()">🔑 Ingresar nueva API Key</button>`:''}
+      <button class="btn btn-o bsm" style="margin-top:6px;width:100%" onclick="startListening()">🔄 Reintentar</button>
+    </div>`;
     document.getElementById('vp-result').classList.add('show');
   }
 }
@@ -4104,10 +4233,12 @@ async function genFocoTactico(mid){
   const btn=event.target;btn.disabled=true;btn.textContent='Generando...';
   const el=document.getElementById('pp-foco');el.innerHTML='<span style="color:var(--muted)">Analizando...</span>';
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,
+    const _ak=localStorage.getItem('vb_api_key')||'';
+    const _headers={'Content-Type':'application/json'};
+    if(_ak){_headers['x-api-key']=_ak;_headers['anthropic-version']='2023-06-01';_headers['anthropic-dangerous-direct-browser-access']='true';}
+    const apiResp=await apiCall({model:'claude-sonnet-4-20250514',max_tokens:500,
         system:'Eres un entrenador de volleyball de alto rendimiento. Da instrucciones tácticas concretas para el partido. En español, máximo 4 puntos clave.',
-        messages:[{role:'user',content:`Partido vs ${m.rival}. Sistema rival: ${m.sistema}. Scouting: ${m.notas||'sin notas'}. Equipo: ${players.length} jugadores. Jugadores disponibles: ${players.filter(p=>getSemaforo(p.id)==='v').length}. Dame el foco táctico para este partido (servicio, recepción, bloqueo, transición).`}]})});
+        messages:[{role:'user',content:`Partido vs ${m.rival}. Sistema rival: ${m.sistema}. Scouting: ${m.notas||'sin notas'}. Equipo: ${players.length} jugadores. Jugadores disponibles: ${players.filter(p=>getSemaforo(p.id)==='v').length}. Dame el foco táctico para este partido (servicio, recepción, bloqueo, transición).`}]});const res={json:async()=>apiResp};
     const data=await res.json();
     el.innerHTML=(data.content?.[0]?.text||'Sin respuesta').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
   }catch(e){el.innerHTML=`<span style="color:var(--red)">Error: ${e.message}</span>`;}
@@ -4311,24 +4442,7 @@ function renderTemporadas(){
 // ═══════════════════════════════════════════
 //  📱 PWA — INSTALABLE EN CELULAR
 // ═══════════════════════════════════════════
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();
-  pwaInstallPrompt=e;
-  // Show install button in header
-  const btn=document.createElement('button');
-  btn.id='pwa-install-btn';
-  btn.textContent='📱 Instalar App';
-  btn.style.cssText='background:rgba(124,82,200,.15);border:1px solid rgba(124,82,200,.4);color:var(--purple);padding:4px 11px;border-radius:6px;cursor:pointer;font-family:var(--f);font-size:11px;font-weight:600;';
-  btn.onclick=async()=>{
-    if(!pwaInstallPrompt)return;
-    pwaInstallPrompt.prompt();
-    const{outcome}=await pwaInstallPrompt.userChoice;
-    if(outcome==='accepted'){btn.textContent='✅ Instalada';btn.disabled=true;}
-    pwaInstallPrompt=null;
-  };
-  const headerRight=document.querySelector('.hdr > div:last-of-type');
-  if(headerRight)headerRight.insertBefore(btn,headerRight.firstChild);
-});
+// PWA install disabled
 
 // PWA manifest via meta tags (for standalone mode)
 // PWA meta already in <head> — manifest.json linked statically
@@ -4336,6 +4450,61 @@ window.addEventListener('beforeinstallprompt',e=>{
 // Auto-render HOY on overview load
 const origRenderOvStats=renderOvStats;
 
+
+// ── Voice key management & UI helpers ──
+function configVoiceKey(){
+  const current=localStorage.getItem('vb_api_key')||'';
+  const k=prompt('Ingresa tu API Key de Anthropic\n(obtenerla en: console.anthropic.com)\n\nActual: '+(current?current.substring(0,12)+'...':'ninguna'),'');
+  if(k===null)return;
+  const kt=k.trim();
+  if(kt.startsWith('sk-')){
+    localStorage.setItem('vb_api_key',kt);
+    updateKeyStatus();
+    alert('✅ API Key guardada. Ya puedes usar el microfono y el Coach IA.');
+  } else if(kt===''){
+    localStorage.removeItem('vb_api_key');
+    updateKeyStatus();
+  } else {
+    alert('Key invalida. Debe empezar con sk-ant-...');
+  }
+}
+function updateKeyStatus(){
+  const el=document.getElementById('vp-key-status');
+  if(!el)return;
+  const k=localStorage.getItem('vb_api_key');
+  el.innerHTML=k
+    ?'🔑 <span style="color:var(--green);font-weight:700">Key configurada ✅</span>'
+    :'🔑 <span style="color:var(--red);font-weight:700">Sin API Key</span> — toca Configurar';
+}
+function setVoiceTab(tab){
+  document.getElementById('vp-tab-mic').classList.toggle('on',tab==='mic');
+  document.getElementById('vp-tab-text').classList.toggle('on',tab==='text');
+  document.getElementById('vp-mic-mode').style.display=tab==='mic'?'block':'none';
+  document.getElementById('vp-text-mode').style.display=tab==='text'?'block':'none';
+}
+async function submitTextCommand(){
+  const text=(document.getElementById('vp-text-input').value||'').trim();
+  if(!text)return;
+  document.getElementById('vp-text-input').value='';
+  document.getElementById('vp-transcript').textContent=text;
+  await processVoiceCommand(text);
+}
+// ── Cerrar App ──
+function closeApp(){
+  saveState();
+  if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone){
+    window.close();
+    // Fallback for browsers that block window.close()
+    setTimeout(()=>{
+      document.body.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#060D18;color:#E6EEF8;font-family:sans-serif;gap:16px"><div style="font-size:48px">🏐</div><div style="font-size:20px;font-weight:700;color:#E6A817">MacroCiclo VB PRO</div><div style="color:#607A95;font-size:14px">Datos guardados. Puedes cerrar esta ventana.</div><button onclick="window.close()" style="background:#E6A817;color:#000;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;margin-top:8px">Cerrar</button></div>';
+    },300);
+  } else {
+    // In browser tab — just confirm and close
+    if(confirm('¿Guardar y cerrar MacroCiclo VB PRO?')) window.close();
+  }
+}
+
 </script>
+
 </body>
 </html>

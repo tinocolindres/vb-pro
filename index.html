@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MacroCiclo VB PRO v04071331</title>
+<title>MacroCiclo VB PRO v04071451</title>
 <meta name="description" content="Sistema profesional de planificación y gestión de volleyball">
 <meta name="theme-color" content="#E6A817">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2395,23 +2395,44 @@ function setupTacCanvas(){
   const fresh=canvas.cloneNode(true);
   canvas.parentNode.replaceChild(fresh,canvas);
   tacCtx=fresh.getContext('2d');
+  // Use 'fresh' not 'canvas' for getBoundingClientRect
   fresh.addEventListener('click',e=>{
-    const rect=canvas.getBoundingClientRect();
-    const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+    const rect=fresh.getBoundingClientRect();
+    const sx=fresh.width/rect.width,sy=fresh.height/rect.height;
     const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;
     if(tacMode==='erase'){
       const idx=tacObjects.findIndex(o=>Math.hypot(o.x-x,o.y-y)<18);
       if(idx>-1){tacObjects.splice(idx,1);drawTac();}
     } else {
-      tacObjects.push({type:tacMode,x,y,color:tacColor,label:tacMode==='ball'?'⚽':tacMode.includes('red')?'R':'J'});
+      const label=tacMode==='ball'?'B':tacMode.includes('red')?'R':'J';
+      tacObjects.push({type:tacMode,x,y,color:tacColor,label});
       drawTac();
     }
   });
+  // Also handle touch events for mobile
+  fresh.addEventListener('touchend',e=>{
+    e.preventDefault();
+    const touch=e.changedTouches[0];
+    const rect=fresh.getBoundingClientRect();
+    const sx=fresh.width/rect.width,sy=fresh.height/rect.height;
+    const x=(touch.clientX-rect.left)*sx,y=(touch.clientY-rect.top)*sy;
+    if(tacMode==='erase'){
+      const idx=tacObjects.findIndex(o=>Math.hypot(o.x-x,o.y-y)<18);
+      if(idx>-1){tacObjects.splice(idx,1);drawTac();}
+    } else {
+      const label=tacMode==='ball'?'B':tacMode.includes('red')?'R':'J';
+      tacObjects.push({type:tacMode,x,y,color:tacColor,label});
+      drawTac();
+    }
+  },{passive:false});
   drawTac();
 }
 function drawTac(){
   const canvas=document.getElementById('tac-canvas');
-  const ctx=tacCtx;if(!ctx)return;
+  const ctx=tacCtx;
+  if(!ctx||!canvas)return;
+  // Re-sync ctx if canvas was replaced
+  if(ctx.canvas!==canvas){tacCtx=canvas.getContext('2d');}
   const W=canvas.width,H=canvas.height;
   ctx.clearRect(0,0,W,H);
   // Court background

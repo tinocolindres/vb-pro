@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MacroCiclo VB PRO v04072222</title>
+<title>MacroCiclo VB PRO v04072239</title>
 <meta name="description" content="Sistema profesional de planificación y gestión de volleyball">
 <meta name="theme-color" content="#E6A817">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2465,7 +2465,7 @@ function drawTac(){
   ctx.setLineDash([]);
   // Zone numbers
   ctx.fillStyle='rgba(255,255,255,0.2)';ctx.font='bold 13px Arial';ctx.textAlign='center';
-  [[1,mx+cw*0.83,my+ch*0.83],[2,mx+cw*0.5,my+ch*0.83],[3,mx+cw*0.17,my+ch*0.83],[4,mx+cw*0.17,my+ch*0.5],[5,mx+cw*0.5,my+ch*0.25],[6,mx+cw*0.83,my+ch*0.25]].forEach(([n,x,y])=>{ctx.fillText(n,x,y);});
+  [[1,mx+cw*0.83,my+ch*0.75],[6,mx+cw*0.5,my+ch*0.75],[5,mx+cw*0.17,my+ch*0.75],[2,mx+cw*0.83,my+ch*0.25],[3,mx+cw*0.5,my+ch*0.25],[4,mx+cw*0.17,my+ch*0.25]].forEach(([n,x,y])=>{ctx.fillText(n,x,y);});
   // Objects — resolve CSS vars to real hex for canvas API
   function resolveColor(c){
     const m={'var(--red)':'#D63B2F','var(--blue)':'#2B7FD4','var(--green)':'#0FA86E',

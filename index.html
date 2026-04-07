@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MacroCiclo VB PRO</title>
+<title>MacroCiclo VB PRO v04070402</title>
 <meta name="description" content="Sistema profesional de planificación y gestión de volleyball">
 <meta name="theme-color" content="#E6A817">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1487,7 +1487,7 @@ function refreshParSel(){
   const cp=pp.value;
   pp.innerHTML='<option value="">— Selecciona —</option>'+players.map(p=>`<option value="${p.id}">#${p.num} ${p.name} (${PN[p.pos]})</option>`).join('');
   if(cp)pp.value=cp;
-  const allWks=WD.filter(w=>w.ph!=='TR');
+  const allWks=WD;// show all 16 weeks including TR
   pm.innerHTML='<option value="">— Selecciona semana —</option>'+allWks.map(w=>{const ph=PH.find(p=>p.id===w.ph);return`<option value="${w.s}">S${w.s} — ${ph.short}${w.ph==='COMP'||w.ph==='PC'?' 🏆':''}</option>`;}).join('');
   renderPartido();
 }
@@ -2333,9 +2333,9 @@ function initTactica(){
   document.getElementById('tac-cat-btns').innerHTML=['Rotaciones','Recepción','Bloqueo','Ataque','Defensa','Libre'].map((c,i)=>`<button class="phbtn ${i===0?'on':''}" data-cat="${c}" onclick="filterTacCat(this.getAttribute('data-cat'),this)">${c}</button>`).join('');
   document.getElementById('tac-tools').innerHTML=[
     {id:'player',icon:'👤',label:'Jugador',color:'#2B7FD4'},{id:'player-red',icon:'👤',label:'Rival',color:'#D63B2F'},
-    {id:'ball',icon:'🏐',label:'Balón',color:'#E6A817'},{id:'arrow',icon:'→',label:'Flecha',color:'#0FA86E'},
-    {id:'erase',icon:'✕',label:'Borrar',color:'var(--red)'},
-  ].map(t=>`<button class="phbtn ${t.id==='player'?'on':''}" style="font-size:11px;padding:5px 10px" id="tac-tool-${t.id}" onclick="selectTacTool('${t.id}','${t.color}',this)">${t.icon} ${t.label}</button>`).join('');
+    {id:'ball',icon:'🏐',label:'Balon',color:'#E6A817'},{id:'arrow',icon:'>',label:'Flecha',color:'#0FA86E'},
+    {id:'erase',icon:'X',label:'Borrar',color:'#D63B2F'},
+  ].map(t=>`<button class="phbtn ${t.id==='player'?'on':''}" style="font-size:11px;padding:5px 10px" id="tac-tool-${t.id}" data-tool="${t.id}" data-color="${t.color}" onclick="selectTacTool(this.dataset.tool,this.dataset.color,this)">${t.icon} ${t.label}</button>`).join('');
   renderTacTemplates('Todos');renderTacSaved();
   setupTacCanvas();loadTemplate(TAC_TEMPLATES[0]);
 }
@@ -2388,16 +2388,24 @@ function drawTac(){
   // Zone numbers
   ctx.fillStyle='rgba(255,255,255,0.2)';ctx.font='bold 13px Arial';ctx.textAlign='center';
   [[1,mx+cw*0.83,my+ch*0.83],[2,mx+cw*0.5,my+ch*0.83],[3,mx+cw*0.17,my+ch*0.83],[4,mx+cw*0.17,my+ch*0.5],[5,mx+cw*0.5,my+ch*0.25],[6,mx+cw*0.83,my+ch*0.25]].forEach(([n,x,y])=>{ctx.fillText(n,x,y);});
-  // Objects
+  // Objects — resolve CSS vars to real hex for canvas API
+  function resolveColor(c){
+    const m={'var(--red)':'#D63B2F','var(--blue)':'#2B7FD4','var(--green)':'#0FA86E',
+             'var(--gold)':'#E6A817','var(--cyan)':'#1AADCC','var(--purple)':'#7C52C8','var(--muted)':'#607A95'};
+    return m[c]||c;
+  }
   tacObjects.forEach(o=>{
+    const col=resolveColor(o.color);
     if(o.type==='ball'){
-      ctx.fillStyle='#E6A817';ctx.beginPath();ctx.arc(o.x,o.y,10,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#000';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText('🏐',o.x,o.y+4);
+      ctx.fillStyle='#E6A817';ctx.beginPath();ctx.arc(o.x,o.y,12,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=1;ctx.stroke();
+      ctx.fillStyle='#000';ctx.font='bold 11px Arial';ctx.textAlign='center';ctx.fillText('B',o.x,o.y+4);
     } else if(o.type==='arrow'){
-      ctx.strokeStyle=o.color;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(o.x-15,o.y);ctx.lineTo(o.x+15,o.y);
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(o.x-15,o.y);ctx.lineTo(o.x+15,o.y);
       ctx.moveTo(o.x+8,o.y-7);ctx.lineTo(o.x+15,o.y);ctx.lineTo(o.x+8,o.y+7);ctx.stroke();
     } else {
-      ctx.fillStyle=o.color;ctx.beginPath();ctx.arc(o.x,o.y,14,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(o.x,o.y,14,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1.5;ctx.stroke();
       ctx.fillStyle='#fff';ctx.font='bold 11px Arial';ctx.textAlign='center';ctx.fillText(o.label,o.x,o.y+4);
     }
   });
@@ -3239,32 +3247,13 @@ function printReport(title,html){
 
 
 
-// SW Registration — auto-update
+// SW Manager — force fresh content always
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      // Unregister stale workers and force fresh content
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) { await r.unregister(); }
-      
-      const reg = await navigator.serviceWorker.register('./sw.js?v=3');
-      reg.update();
-      
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        if (!nw) return;
-        nw.addEventListener('statechange', () => {
-          if (nw.state === 'installed') {
-            nw.postMessage('SKIP_WAITING');
-            window.location.reload();
-          }
-        });
-      });
-      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
-    } catch (err) {
-      console.warn('[App] SW:', err.message);
-    }
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
   });
+  // Register the self-destruct SW which clears caches and reloads
+  navigator.serviceWorker.register('./sw.js?v=4').catch(()=>{});
 }
 </body></html>`;
   showExportModal(title, fullHtml, 'html');

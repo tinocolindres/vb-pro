@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VB PRO">
 <link rel="manifest" href="manifest.json">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -1049,6 +1052,9 @@ function ST(id){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nb').forEach((b,i)=>b.classList.toggle('on',i===TM[id]));
   document.getElementById('p-'+id).classList.add('on');
+  if(id==='fases'){renderPhBtns();renderPhDet();}
+  if(id==='sem'){renderWsel();renderWdet();}
+  if(id==='carga')setTimeout(initCargCh,50);
   if(id==='seg')refreshSegSel();
   if(id==='par')refreshParSel();
   if(id==='rank'){populateRkWk();renderRank();}
@@ -1266,7 +1272,7 @@ function openAddP(id=null){
   document.getElementById('p-cat').value=pl?pl.cat:'Masculino Adulto';
   document.getElementById('modal-add').classList.add('on');
 }
-function closeModals(){document.querySelectorAll('.mov').forEach(m=>m.classList.remove('on'));editPid=null;}
+function closeModals(){document.querySelectorAll('.mov').forEach(m=>m.classList.remove('on'));const eo=document.getElementById('modal-export-overlay');if(eo)eo.remove();editPid=null;}
 function saveP(){
   const name=document.getElementById('p-name').value.trim();
   const num=document.getElementById('p-num').value;
@@ -1275,7 +1281,7 @@ function saveP(){
   if(!name||!num){alert('Nombre y número son obligatorios');return;}
   if(editPid){const pl=players.find(p=>p.id===editPid);pl.name=name;pl.num=num;pl.pos=pos;pl.cat=cat;}
   else players.push({id:`p${nextId++}`,name,num,pos,cat});
-  closeModals();renderPlayers();renderOvStats();refreshSegSel();refreshParSel();
+  closeModals();renderPlayers();renderOvStats();refreshSegSel();refreshParSel();try{refreshPSSel();}catch(e){}try{refreshTstSel();}catch(e){}try{refreshTecSel();}catch(e){}try{refreshMedSel();}catch(e){}try{refreshMenSel();}catch(e){}
 }
 function showPDet(id){
   const pl=players.find(p=>p.id===id);
@@ -1318,7 +1324,7 @@ function delP(id){
   if(idx>-1)players.splice(idx,1);
   Object.keys(trackData).filter(k=>k.startsWith(id+'_')).forEach(k=>delete trackData[k]);
   Object.keys(matchData).filter(k=>k.startsWith(id+'_')).forEach(k=>delete matchData[k]);
-  closeModals();renderPlayers();renderOvStats();refreshSegSel();refreshParSel();
+  closeModals();renderPlayers();renderOvStats();refreshSegSel();refreshParSel();try{refreshPSSel();}catch(e){}try{refreshTstSel();}catch(e){}try{refreshTecSel();}catch(e){}try{refreshMedSel();}catch(e){}try{refreshMenSel();}catch(e){}
 }
 function segSel(id){
   ST('seg');setTimeout(()=>{document.getElementById('sp-sel').value=id;renderSeg();},80);
@@ -1481,7 +1487,8 @@ function refreshParSel(){
   const cp=pp.value;
   pp.innerHTML='<option value="">— Selecciona —</option>'+players.map(p=>`<option value="${p.id}">#${p.num} ${p.name} (${PN[p.pos]})</option>`).join('');
   if(cp)pp.value=cp;
-  pm.innerHTML=WD.filter(w=>w.ph==='COMP'||w.ph==='PC').map(w=>{const ph=PH.find(p=>p.id===w.ph);return`<option value="${w.s}">Semana ${w.s} — ${ph.short}</option>`;}).join('');
+  const allWks=WD.filter(w=>w.ph!=='TR');
+  pm.innerHTML='<option value="">— Selecciona semana —</option>'+allWks.map(w=>{const ph=PH.find(p=>p.id===w.ph);return`<option value="${w.s}">S${w.s} — ${ph.short}${w.ph==='COMP'||w.ph==='PC'?' 🏆':''}</option>`;}).join('');
   renderPartido();
 }
 function renderPartido(){
@@ -2141,6 +2148,7 @@ async function analyzeMatchWithCoach(){
 
 renderOvStats();
 renderPhTL();
+// Auto-render HOY context on startup
 initOvCharts();
 renderPhBtns();
 renderPhDet();
@@ -2149,13 +2157,15 @@ renderWdet();
 refreshSegSel();
 refreshParSel();
 renderCoachCtx();
+// Sync player selects across all modules
+try{const sel=document.getElementById('ps-player-sel');if(sel){const cv=sel.value;sel.innerHTML='<option value="">— Selecciona —</option>'+players.map(p=>`<option value="${p.id}">#${p.num} ${p.name}</option>`).join('');if(cv)sel.value=cv;}}catch(e){}
 renderQuickBtns();
 appendWelcome();
 initVideoModule();
 initCalendario();
 initSesiones();
 loadState();
-document.querySelector('.nb:nth-child(4)').addEventListener('click',()=>setTimeout(initCargCh,50));
+// Carga chart init handled by ST()
 // Auto-save every 2 minutes
 setInterval(saveState,120000);
 
@@ -2306,24 +2316,34 @@ function renderAlertas(){
 //  BIBLIOTECA TÁCTICA
 // ═══════════════════════════════════════════
 const TAC_TEMPLATES=[
-  {name:'Rotación 1 — Saque',desc:'Posición inicial en saque',players:[{x:.5,y:.15,label:'S',color:'#E6A817'},{x:.17,y:.5,label:'P6',color:'#2B7FD4'},{x:.5,y:.5,label:'P3',color:'#2B7FD4'},{x:.83,y:.5,label:'P4',color:'#2B7FD4'},{x:.17,y:.82,label:'P1',color:'#2B7FD4'},{x:.5,y:.82,label:'P2',color:'#2B7FD4'},{x:.83,y:.82,label:'L',color:'#0FA86E'}]},
-  {name:'Recepción W',desc:'Sistema de recepción en W con 5 jugadores',players:[{x:.15,y:.78,label:'R',color:'#0FA86E'},{x:.37,y:.68,label:'R',color:'#0FA86E'},{x:.5,y:.82,label:'L',color:'#0FA86E'},{x:.63,y:.68,label:'R',color:'#0FA86E'},{x:.85,y:.78,label:'R',color:'#0FA86E'},{x:.5,y:.42,label:'A',color:'#E6A817'}]},
-  {name:'Bloqueo doble zona 4',desc:'Doble bloqueo central+punta en zona 4',players:[{x:.17,y:.1,label:'B1',color:'#2B7FD4'},{x:.33,y:.1,label:'B2',color:'#2B7FD4'},{x:.5,y:.25,label:'D',color:'#7C52C8'},{x:.75,y:.55,label:'D',color:'#7C52C8'},{x:.25,y:.65,label:'D',color:'#7C52C8'},{x:.5,y:.75,label:'L',color:'#0FA86E'}]},
-  {name:'Sistema 5-1 — Ataque rápido',desc:'Ataque rápido con central',players:[{x:.5,y:.82,label:'A',color:'#E6A817'},{x:.17,y:.35,label:'C',color:'#D63B2F'},{x:.5,y:.35,label:'ARM',color:'#1AADCC'},{x:.83,y:.35,label:'Op',color:'#D63B2F'},{x:.17,y:.7,label:'P5',color:'#2B7FD4'},{x:.83,y:.7,label:'P2',color:'#2B7FD4'}]},
+  {cat:'Rotaciones',name:'Rotación 1 — Saque',desc:'Posición inicial en saque',players:[{x:.5,y:.15,label:'S',color:'#E6A817'},{x:.17,y:.5,label:'P6',color:'#2B7FD4'},{x:.5,y:.5,label:'P3',color:'#2B7FD4'},{x:.83,y:.5,label:'P4',color:'#2B7FD4'},{x:.17,y:.82,label:'P1',color:'#2B7FD4'},{x:.5,y:.82,label:'P2',color:'#2B7FD4'},{x:.83,y:.82,label:'L',color:'#0FA86E'}]},
+  {cat:'Recepción',name:'Recepción W',desc:'Sistema de recepción en W con 5 jugadores',players:[{x:.15,y:.78,label:'R',color:'#0FA86E'},{x:.37,y:.68,label:'R',color:'#0FA86E'},{x:.5,y:.82,label:'L',color:'#0FA86E'},{x:.63,y:.68,label:'R',color:'#0FA86E'},{x:.85,y:.78,label:'R',color:'#0FA86E'},{x:.5,y:.42,label:'A',color:'#E6A817'}]},
+  {cat:'Bloqueo',name:'Bloqueo doble zona 4',desc:'Doble bloqueo central+punta en zona 4',players:[{x:.17,y:.1,label:'B1',color:'#2B7FD4'},{x:.33,y:.1,label:'B2',color:'#2B7FD4'},{x:.5,y:.25,label:'D',color:'#7C52C8'},{x:.75,y:.55,label:'D',color:'#7C52C8'},{x:.25,y:.65,label:'D',color:'#7C52C8'},{x:.5,y:.75,label:'L',color:'#0FA86E'}]},
+  {cat:'Ataque',name:'Sistema 5-1 — Ataque rápido',desc:'Ataque rápido con central',players:[{x:.5,y:.82,label:'A',color:'#E6A817'},{x:.17,y:.35,label:'C',color:'#D63B2F'},{x:.5,y:.35,label:'ARM',color:'#1AADCC'},{x:.83,y:.35,label:'Op',color:'#D63B2F'},{x:.17,y:.7,label:'P5',color:'#2B7FD4'},{x:.83,y:.7,label:'P2',color:'#2B7FD4'}]},
+,
+  {cat:'Rotaciones',name:'Rotación 4 — Recepción',desc:'Posición en rotación 4 recibiendo saque',players:[{x:.15,y:.72,label:'R1',color:'#0FA86E'},{x:.38,y:.65,label:'R2',color:'#0FA86E'},{x:.62,y:.65,label:'R3',color:'#0FA86E'},{x:.85,y:.72,label:'R4',color:'#0FA86E'},{x:.5,y:.45,label:'ARM',color:'#E6A817'},{x:.5,y:.82,label:'L',color:'#0FA86E'}]},
+  {cat:'Defensa',name:'Defensa en W',desc:'Sistema defensivo en W contra ataque zona 4',players:[{x:.15,y:.75,label:'D',color:'#7C52C8'},{x:.38,y:.88,label:'L',color:'#0FA86E'},{x:.62,y:.88,label:'D',color:'#7C52C8'},{x:.85,y:.75,label:'D',color:'#7C52C8'},{x:.5,y:.62,label:'D',color:'#7C52C8'},{x:.5,y:.45,label:'ARM',color:'#E6A817'}]},
+  {cat:'Ataque',name:'Combinación quick + punta',desc:'Quick central con punta como opción secundaria',players:[{x:.17,y:.12,label:'C',color:'#D63B2F'},{x:.5,y:.12,label:'ARM',color:'#E6A817'},{x:.83,y:.12,label:'P',color:'#2B7FD4'},{x:.17,y:.7,label:'R1',color:'#0FA86E'},{x:.5,y:.8,label:'L',color:'#0FA86E'},{x:.83,y:.7,label:'R2',color:'#0FA86E'}]},
+  {cat:'Bloqueo',name:'Bloqueo individual zona 2',desc:'Bloqueo central moviéndose a zona 2',players:[{x:.75,y:.1,label:'B',color:'#2B7FD4'},{x:.5,y:.25,label:'D',color:'#7C52C8'},{x:.25,y:.55,label:'D',color:'#7C52C8'},{x:.75,y:.55,label:'D',color:'#7C52C8'},{x:.5,y:.75,label:'L',color:'#0FA86E'},{x:.25,y:.12,label:'D',color:'#7C52C8'}]},
+  {cat:'Libre',name:'Cancha libre',desc:'Lienzo en blanco para crear tu propio diagrama',players:[]}
 ];
 const tacObjects=[];let tacDragIdx=-1;
 
 function initTactica(){
-  document.getElementById('tac-cat-btns').innerHTML=['Rotaciones','Recepción','Bloqueo','Ataque','Defensa','Libre'].map((c,i)=>`<button class="phbtn ${i===0?'on':''}" onclick="filterTacCat('${c}',this)">${c}</button>`).join('');
+  document.getElementById('tac-cat-btns').innerHTML=['Rotaciones','Recepción','Bloqueo','Ataque','Defensa','Libre'].map((c,i)=>`<button class="phbtn ${i===0?'on':''}" data-cat="${c}" onclick="filterTacCat(this.getAttribute('data-cat'),this)">${c}</button>`).join('');
   document.getElementById('tac-tools').innerHTML=[
     {id:'player',icon:'👤',label:'Jugador',color:'#2B7FD4'},{id:'player-red',icon:'👤',label:'Rival',color:'#D63B2F'},
     {id:'ball',icon:'🏐',label:'Balón',color:'#E6A817'},{id:'arrow',icon:'→',label:'Flecha',color:'#0FA86E'},
     {id:'erase',icon:'✕',label:'Borrar',color:'var(--red)'},
   ].map(t=>`<button class="phbtn ${t.id==='player'?'on':''}" style="font-size:11px;padding:5px 10px" id="tac-tool-${t.id}" onclick="selectTacTool('${t.id}','${t.color}',this)">${t.icon} ${t.label}</button>`).join('');
-  renderTacTemplates();renderTacSaved();
+  renderTacTemplates('Todos');renderTacSaved();
   setupTacCanvas();loadTemplate(TAC_TEMPLATES[0]);
 }
-function filterTacCat(cat,btn){document.querySelectorAll('#tac-cat-btns button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+function filterTacCat(cat,btn){
+  document.querySelectorAll('#tac-cat-btns button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderTacTemplates(cat);
+}
 function selectTacTool(id,color,btn){
   tacMode=id;tacColor=color;
   document.querySelectorAll('#tac-tools button').forEach(b=>b.classList.remove('on'));
@@ -2406,12 +2426,24 @@ function renderTacSaved(){
     </div>`).join(''):'<div style="color:var(--muted);font-size:12px">Sin diagramas guardados.</div>';
 }
 function loadTacDiagram(i){tacObjects.length=0;tacDiagrams[i].objects.forEach(o=>tacObjects.push({...o}));drawTac();document.getElementById('tac-notes').value=tacDiagrams[i].notes||'';}
-function renderTacTemplates(){
-  document.getElementById('tac-templates').innerHTML=TAC_TEMPLATES.map((t,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor=''" onclick="loadTemplate(TAC_TEMPLATES[${i}])">
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0"></div>
-      <div><div style="font-size:12px;font-weight:600">${t.name}</div><div style="font-size:11px;color:var(--muted)">${t.desc}</div></div>
-    </div>`).join('');
+function renderTacTemplates(filterCat){
+  const catColors={Rotaciones:'var(--blue)',Recepción:'var(--green)',Bloqueo:'var(--blue)',Ataque:'var(--red)',Defensa:'var(--purple)',Libre:'var(--muted)'};
+  const filtered=filterCat&&filterCat!=='Todos'
+    ? TAC_TEMPLATES.filter(t=>t.cat===filterCat)
+    : TAC_TEMPLATES;
+  if(!filtered.length){
+    document.getElementById('tac-templates').innerHTML=`<div style="color:var(--muted);font-size:13px;padding:10px 0">No hay plantillas en esta categoría aún.</div>`;
+    return;
+  }
+  document.getElementById('tac-templates').innerHTML=filtered.map((t)=>{
+    const realIdx=TAC_TEMPLATES.indexOf(t);
+    const col=catColors[t.cat]||'var(--gold)';
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='${col}'" onmouseout="this.style.borderColor=''" onclick="loadTemplate(TAC_TEMPLATES[${realIdx}])">
+      <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:600">${t.name}</div><div style="font-size:11px;color:var(--muted)">${t.desc}</div></div>
+      <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${col}22;color:${col}">${t.cat}</span>
+    </div>`;
+  }).join('');
 }
 
 
@@ -3207,34 +3239,33 @@ function printReport(title,html){
 
 
 
-// SW Registration — runs inline with main script
-// ── Service Worker Registration ──
+// SW Registration — auto-update
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
-      console.log('[App] Service Worker registrado:', reg.scope);
+      // Unregister stale workers and force fresh content
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) { await r.unregister(); }
       
-      // Check for updates
+      const reg = await navigator.serviceWorker.register('./sw.js?v=3');
+      reg.update();
+      
       reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New version available
-            const updateBtn = document.createElement('button');
-            updateBtn.textContent = '🔄 Nueva versión disponible — Actualizar';
-            updateBtn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#E6A817;color:#000;border:none;padding:10px;cursor:pointer;font-weight:700;z-index:9999;font-family:sans-serif;font-size:13px;';
-            updateBtn.onclick = () => { newWorker.postMessage('SKIP_WAITING'); location.reload(); };
-            document.body.appendChild(updateBtn);
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed') {
+            nw.postMessage('SKIP_WAITING');
+            window.location.reload();
           }
         });
       });
+      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
     } catch (err) {
-      console.warn('[App] SW no disponible (modo local):', err.message);
+      console.warn('[App] SW:', err.message);
     }
   });
 }
-// end of SW registration block
 </body></html>`;
   showExportModal(title, fullHtml, 'html');
 }
@@ -3866,6 +3897,7 @@ function renderHoy(){
   const todayCfg=TIPO_CFG[todaySession?.tipo]||TIPO_CFG['LIBRE'];
 
   // Player availability
+  if(!players.length){document.getElementById('hoy-content').innerHTML=`<div class="empty"><div class="ic">🌅</div><p>Agrega jugadores primero para ver el dashboard de hoy.</p><button class="btn btn-g" onclick="ST('jug')">+ Agregar Jugadores</button></div>`;return;}
   const avail=players.filter(p=>getSemaforo(p.id)==='v');
   const warn=players.filter(p=>getSemaforo(p.id)==='a');
   const unavail=players.filter(p=>getSemaforo(p.id)==='r');

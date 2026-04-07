@@ -1,6 +1,6 @@
 // MacroCiclo VB PRO — Service Worker
 // Versión del cache — incrementar para forzar actualización
-const CACHE_VERSION = 'vb-pro-v2';
+const CACHE_VERSION = 'vb-pro-v3';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_CDN = `${CACHE_VERSION}-cdn`;
 
@@ -90,9 +90,16 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // App local — network-first para siempre tener la versión más reciente
-  // con fallback a cache si no hay internet
+  // App local — index.html NEVER cached, always fresh
   if (url.origin === self.location.origin) {
+    if (url.pathname.endsWith('index.html') || url.pathname.endsWith('/')) {
+      // Always fetch fresh from network for main app file
+      event.respondWith(
+        fetch(event.request, {cache: 'no-store'})
+          .catch(() => caches.match('./index.html'))
+      );
+      return;
+    }
     event.respondWith(networkFirst(event.request, CACHE_STATIC));
     return;
   }

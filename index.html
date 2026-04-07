@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MacroCiclo VB PRO v04071451</title>
+<title>MacroCiclo VB PRO v04072222</title>
 <meta name="description" content="Sistema profesional de planificación y gestión de volleyball">
 <meta name="theme-color" content="#E6A817">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2368,14 +2368,28 @@ function initTactica(){
     `<button class="phbtn ${t.id==='player'?'on':''}" id="tac-tool-${t.id}" style="font-size:11px;padding:5px 12px;font-weight:700" data-tool="${t.id}" data-color="${t.color}">${t.icon} ${t.label}</button>`
   ).join('');
   document.querySelectorAll('#tac-tools button').forEach(btn=>{
-    btn.addEventListener('click',function(){
+    function handleToolSelect(){
       tacMode=this.dataset.tool;
       tacColor=this.dataset.color;
-      document.querySelectorAll('#tac-tools button').forEach(b=>b.classList.remove('on'));
+      document.querySelectorAll('#tac-tools button').forEach(b=>{
+        b.classList.remove('on');
+        b.style.background='';
+        b.style.color='';
+      });
       this.classList.add('on');
-    });
+      this.style.background=tacColor;
+      this.style.color='#fff';
+      // Update canvas cursor hint
+      const canvas=document.getElementById('tac-canvas');
+      if(canvas)canvas.style.cursor=tacMode==='erase'?'crosshair':'cell';
+    }
+    btn.addEventListener('click',handleToolSelect);
+    btn.addEventListener('touchstart',function(e){e.preventDefault();handleToolSelect.call(this);},{passive:false});
   });
 
+  // Visually mark first tool as active on init
+  const firstTool=document.getElementById('tac-tool-player');
+  if(firstTool){firstTool.style.background='#2B7FD4';firstTool.style.color='#fff';}
   renderTacTemplates('Todos');renderTacSaved();
   setupTacCanvas();loadTemplate(TAC_TEMPLATES[0]);
 }
@@ -2429,7 +2443,7 @@ function setupTacCanvas(){
 }
 function drawTac(){
   const canvas=document.getElementById('tac-canvas');
-  const ctx=tacCtx;
+  const ctx=tacCtx;if(!ctx)return;
   if(!ctx||!canvas)return;
   // Re-sync ctx if canvas was replaced
   if(ctx.canvas!==canvas){tacCtx=canvas.getContext('2d');}
@@ -3720,7 +3734,7 @@ function initVoice(){
   recognition.onerror=e=>{
     if(e.error==='language-not-supported'){recognition.lang='es-US';recognition.start();return;}
     setVoiceState('idle');
-    const msgs={'not-allowed':'⚠ Permiso de microfono denegado. Ve a Configuracion del sitio y permite el microfono.','no-speech':'No se detecto voz. Habla mas cerca del microfono o usa modo Texto.','network':'Error de red.','audio-capture':'No se encontro microfono.','service-not-allowed':'Microfono no permitido en esta pagina.'};
+    const msgs={'not-allowed':'⚠ Permiso denegado. En Chrome Android: Configuracion > Privacidad > Configuracion del sitio > Microfono > tinocolindres.github.io > Permitir. En PWA: desinstala y reinstala la app.','no-speech':'No se detecto voz. Habla mas cerca del microfono o usa modo Texto.','network':'Error de red.','audio-capture':'No se encontro microfono.','service-not-allowed':'Microfono no permitido en esta pagina.'};
     document.getElementById('vp-transcript').textContent=msgs[e.error]||'Error: '+e.error+'. Intenta modo Texto (tab derecho).';
   };
   const _origErr = recognition.onerror;
